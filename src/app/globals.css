@@ -1,0 +1,100 @@
+@import "tailwindcss";
+
+/*
+  Design language: forensic ledger, re-grounded in Razorpay's own brand navy
+  and blues instead of a generic dark-panel template. ink-900 is Razorpay's
+  own logo navy (#0C2651) at full brand saturation; ink-800/700/600 are a
+  deliberately desaturated slate-navy ramp on top of it (same hue, ~20%
+  saturation) so panels/borders/dim text stay structural and quiet instead
+  of turning the whole UI into a wash of vivid blue -- the same restraint
+  the original palette had, just re-grounded in the brand hue. The one
+  accent doing real signaling work is Razorpay's own bright blue (#0D94FB)
+  in place of the old amber. Categorical/status hex values below are not
+  eyeballed -- they were run through the dataviz skill's colorblind-safety
+  validator (scripts/validate_palette.js) against this exact ink-800 surface
+  (#353f50) before being adopted; see the implementation plan for the
+  validator output. Numerals still run in a monospace stack throughout --
+  money should always look like money.
+*/
+@theme {
+  --color-ink-900: #0c2651;
+  --color-ink-800: #353f50;
+  --color-ink-700: #435065;
+  --color-ink-600: #52617a;
+  --color-paper: #ece5d3;
+  --color-paper-dim: #c9c0a8;
+  --color-text: #e7e4da;
+  --color-text-dim: #8b93a1;
+  --color-stamp: #0d94fb;
+  --color-stamp-dim: #286cd5;
+  --color-sage: #0ca30c;
+  --color-brick: #d03b3b;
+
+  --color-cat-duplicate: #d95926;
+  --color-cat-refund: #3987e5;
+  --color-cat-rounding: #898781;
+  --color-cat-unexplained: #e66767;
+
+  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  --font-sans: -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 1200px 600px at 15% -10%, #1a53b2 0%, transparent 60%),
+    var(--color-ink-900);
+  /* Without this, the radial-gradient layer repeats (CSS default) down the
+     whole document on any page taller than ~2 tiles -- was already true in
+     the original palette but invisible there (short single page, near-zero
+     luminance delta between glow and base). The 5-page split has genuinely
+     tall pages now, and this hue has enough contrast with ink-900 to make a
+     repeating gradient band very visible, so this now needs to be explicit. */
+  background-repeat: no-repeat;
+}
+
+/* Perforated / torn-edge motif used by the hero receipt -- a real zigzag,
+   not a border-image hack, so it scales cleanly at any width. */
+.torn-edge-bottom {
+  -webkit-mask-image: linear-gradient(#000, #000);
+  clip-path: polygon(
+    0% 0%, 100% 0%, 100% 94%,
+    96% 100%, 92% 94%, 88% 100%, 84% 94%, 80% 100%,
+    76% 94%, 72% 100%, 68% 94%, 64% 100%, 60% 94%,
+    56% 100%, 52% 94%, 48% 100%, 44% 94%, 40% 100%,
+    36% 94%, 32% 100%, 28% 94%, 24% 100%, 20% 94%,
+    16% 100%, 12% 94%, 8% 100%, 4% 94%, 0% 100%
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .stamp-in {
+    animation: stampIn 0.4s cubic-bezier(0.2, 0.9, 0.3, 1.2) backwards;
+  }
+  @keyframes stampIn {
+    from { opacity: 0; transform: scale(1.15) rotate(var(--stamp-rot, -3deg)); }
+    to { opacity: 1; transform: scale(1) rotate(var(--stamp-rot, -3deg)); }
+  }
+
+  /* Page/card entrance used across the dashboard shell -- one shared,
+     understated motion instead of a bespoke transition per component. */
+  .fade-in-up {
+    animation: fadeInUp 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
+    animation-delay: var(--fade-delay, 0ms);
+  }
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+}
+
+/* Hover glow for interactive cards/rows -- a soft lift toward the brand
+   accent, not a full box-shadow-everywhere pattern. Transition itself isn't
+   gated behind prefers-reduced-motion (it's a property fade, not motion). */
+.hover-glow {
+  transition: box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+.hover-glow:hover {
+  box-shadow: 0 0 0 1px rgba(13, 148, 251, 0.25), 0 8px 24px -12px rgba(13, 148, 251, 0.35);
+  border-color: var(--color-stamp-dim);
+}
