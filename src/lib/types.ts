@@ -78,4 +78,9 @@ export interface Report {
   summary: ReportSummary;
   exceptions_by_category: Record<string, { count: number; amount: number }>;
   exceptions: Exception[];
+  // Forensic-accounting anomaly check on the UNEXPLAINED bucket -- see
+  // benfordCheck.ts. Honestly gated on sample size: `flagged` can only be
+  // true when `sufficientSample` is also true, so a small hackathon-scale
+  // dataset never gets a misleading verdict either way.
+  benford: import("./benfordCheck").BenfordResult;
 }

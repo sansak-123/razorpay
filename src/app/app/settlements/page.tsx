@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
-import { getReportBundle } from "@/lib/getReport";
+import { requireUser } from "@/lib/auth/requireUser";
+import { getOrCreateLatestRun } from "@/lib/db/runs";
 import { buildBatchSummaries } from "@/lib/batchSummary";
 import { SettlementTrendChart } from "@/components/charts/SettlementTrendChart";
 import { BatchTable } from "@/components/settlements/BatchTable";
 
-export const metadata: Metadata = { title: "Settlements · Settlement Unpacker" };
+export const metadata: Metadata = { title: "Settlements · Unsettle" };
 
 export default async function SettlementsPage() {
-  const { report, data } = await getReportBundle();
+  const user = await requireUser();
+  const { report, data } = await getOrCreateLatestRun(user.id);
   const batches = buildBatchSummaries(data, report.exceptions);
 
   const totalCredited = batches.reduce((sum, b) => sum + b.credited_amount, 0);

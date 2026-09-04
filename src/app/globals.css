@@ -35,9 +35,29 @@
   --color-cat-rounding: #898781;
   --color-cat-unexplained: #e66767;
 
-  --font-display: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
-  --font-sans: -apple-system, "Segoe UI", system-ui, sans-serif;
-  --font-mono: ui-monospace, "SF Mono", Menlo, Consolas, "Courier New", monospace;
+  /* Landing page only (src/app/page.tsx and src/components/landing) --
+     additive, does not replace or alias the ink/stamp tokens the dashboard
+     uses. Razorpay's real brand hexes, web-verified: deep navy plus one
+     bright "dodger blue" interactive accent, used sparingly. */
+  --color-navy-900: #0a1628;
+  --color-navy-800: #0c2451;
+  --color-navy-700: #16305e;
+  --color-blue: #3395ff;
+  --color-blue-dim: #1a5fb8;
+  --color-landing-white: #f8fafc;
+  --color-landing-text-dim: #7d8ba3;
+
+  /* The --font-fraunces/inter/jetbrains-mono variables are injected by
+     next/font/google on <html> in layout.tsx (self-hosted at build time,
+     zero runtime request to Google) -- these three lines just point the
+     Tailwind tokens the rest of the app already uses at them. Fraunces
+     replaces Georgia for headings/hero numbers (real character instead of
+     a default system serif); Inter replaces the plain OS UI-font stack;
+     JetBrains Mono replaces generic system mono for ledger numerals.
+     System-font fallbacks stay in case a font ever fails to load. */
+  --font-display: var(--font-fraunces), Georgia, serif;
+  --font-sans: var(--font-inter), -apple-system, "Segoe UI", system-ui, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
 body {
@@ -97,4 +117,40 @@ body {
 .hover-glow:hover {
   box-shadow: 0 0 0 1px rgba(13, 148, 251, 0.25), 0 8px 24px -12px rgba(13, 148, 251, 0.35);
   border-color: var(--color-stamp-dim);
+}
+
+/* Landing page: infinite category marquee. Content is duplicated once in
+   the markup so translating by exactly -50% loops seamlessly -- no JS,
+   no library. Paused under reduced motion (falls back to static text,
+   still fully readable) and on hover (lets a reader actually read one). */
+@media (prefers-reduced-motion: no-preference) {
+  .marquee-track {
+    animation: marqueeScroll 24s linear infinite;
+  }
+}
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+@keyframes marqueeScroll {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+/* Landing page: scroll-reveal used by the receipt teaser and stat section.
+   Starts hidden/offset; a client-side IntersectionObserver hook toggles
+   .is-visible once the element actually enters the viewport, so the
+   animation plays when a reader scrolls to it instead of firing at mount
+   time somewhere off-screen. */
+.scroll-reveal {
+  opacity: 0;
+  transform: translateY(24px);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .scroll-reveal {
+    transition: opacity 0.6s cubic-bezier(0.2, 0.7, 0.3, 1), transform 0.6s cubic-bezier(0.2, 0.7, 0.3, 1);
+  }
+}
+.scroll-reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
 }

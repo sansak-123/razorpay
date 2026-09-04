@@ -16,13 +16,21 @@ export interface ReportBundle {
   data: GeneratedData;
 }
 
+// Extracted so an explicit "run it again" action (see src/lib/db/runs.ts's
+// saveRun()) can call it directly and skip the cache -- revalidateTag's
+// "max" profile is stale-while-revalidate, which does NOT guarantee the
+// very next call sees fresh data (it can still return the old value while
+// revalidating in the background), so it's the wrong tool for "the user
+// explicitly asked for a fresh computation right now."
+export async function computeReportBundle(): Promise<ReportBundle> {
+  const data = await getSettlementData();
+  const engine = new SettlementUnpacker(data);
+  const report = await engine.run();
+  return { report, data };
+}
+
 const loadReportBundle = unstable_cache(
-  async (): Promise<ReportBundle> => {
-    const data = await getSettlementData();
-    const engine = new SettlementUnpacker(data);
-    const report = await engine.run();
-    return { report, data };
-  },
+  computeReportBundle,
   ["settlement-report-bundle", process.env.RAZORPAY_LIVE_MODE ?? "false"],
   { revalidate: 3600, tags: ["settlement-report"] }
 );

@@ -1,19 +1,25 @@
 import type { Metadata } from "next";
-import { revalidateTag } from "next/cache";
+import { redirect } from "next/navigation";
 import { getEnvStatus } from "@/lib/envStatus";
+import { requireUser } from "@/lib/auth/requireUser";
+import { saveRun } from "@/lib/db/runs";
 
-export const metadata: Metadata = { title: "Data Source · Settlement Unpacker" };
+export const metadata: Metadata = { title: "Data Source · Unsettle" };
 // This page's whole point is showing live env/config status -- force it to
 // read process.env per-request instead of baking build-time values into a
 // static page.
 export const dynamic = "force-dynamic";
 
-async function refreshReport() {
+async function runReconciliationAgain() {
   "use server";
-  // Report data is cached (src/lib/getReport.ts) so 5 sidebar routes don't
-  // each re-trigger the Claude/MCP pipeline on navigation. This is the
-  // manual escape hatch for that cache during a live demo.
-  revalidateTag("settlement-report", "max");
+  // fresh: true skips the shared pipeline cache entirely (see saveRun()'s
+  // own comment on why revalidateTag's stale-while-revalidate semantics
+  // can't guarantee this). Unlike the old "refresh" action, this INSERTS a
+  // new reconciliation_runs row rather than overwriting one, so history is
+  // preserved.
+  const user = await requireUser();
+  await saveRun(user.id, "razorpay", { fresh: true });
+  redirect("/app");
 }
 
 function StatusRow({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
@@ -70,38 +76,39 @@ export default async function SettingsPage() {
         </h2>
         <div className="bg-ink-800 border border-ink-700 rounded-sm px-5 py-2">
           <StatusRow
-            label="Anthropic API key"
-            ok={env.anthropicKeyConfigured}
-            detail={env.anthropicKeyConfigured ? "configured" : "not configured"}
-          />
-          <StatusRow
-            label="OpenRouter API key (fallback)"
+            label="OpenRouter API key"
             ok={env.openrouterKeyConfigured}
             detail={env.openrouterKeyConfigured ? "configured" : "not configured"}
           />
+          <StatusRow
+            label="Model"
+            ok={env.openrouterKeyConfigured}
+            detail={env.openrouterModel}
+          />
         </div>
         <p className="font-mono text-[11px] text-text-dim mt-3">
-          {env.activeLlmProvider
-            ? `Low-confidence exceptions are re-reasoned live via ${env.activeLlmProvider}.`
-            : "Neither key is set — low-confidence exceptions keep their rule-based guess and are tagged \"Rule-matched\", not \"AI-reasoned\", on the Reconciliation Log."}
+          {env.openrouterKeyConfigured
+            ? `Low-confidence exceptions are re-reasoned live via OpenRouter (${env.openrouterModel}).`
+            : "OPENROUTER_API_KEY isn't set — low-confidence exceptions keep their rule-based guess and are tagged \"Rule-matched\", not \"AI-reasoned\", on the Reconciliation Log."}
         </p>
       </section>
 
       <section>
         <h2 className="font-mono text-[12px] uppercase tracking-widest text-text-dim mb-4 pb-2.5 border-b border-ink-700">
-          Report cache
+          Reconciliation history
         </h2>
         <p className="font-mono text-[11px] text-text-dim mb-3 max-w-lg leading-relaxed">
-          The reconciliation pipeline (and any Claude calls it makes) is
-          cached for an hour so navigating between pages doesn&apos;t
-          re-trigger it. Force a fresh run below.
+          Your dashboard shows the most recent run saved to your account. The
+          underlying pipeline (and any Claude calls it makes) is cached for
+          an hour, so running it again below skips that cache and saves a
+          new run to your history rather than overwriting the last one.
         </p>
-        <form action={refreshReport}>
+        <form action={runReconciliationAgain}>
           <button
             type="submit"
             className="hover-glow rounded-sm border border-ink-700 px-4 py-2 text-[12.5px] font-mono text-text-dim hover:text-text cursor-pointer"
           >
-            Refresh report now
+            Run reconciliation again
           </button>
         </form>
       </section>

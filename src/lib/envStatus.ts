@@ -5,26 +5,18 @@
 
 export interface EnvStatus {
   liveMode: boolean;
-  anthropicKeyConfigured: boolean;
   openrouterKeyConfigured: boolean;
+  openrouterModel: string;
   razorpayKeyConfigured: boolean;
-  activeLlmProvider: "anthropic" | "openrouter" | null;
 }
 
 export function getEnvStatus(): EnvStatus {
-  const anthropicKeyConfigured = Boolean(process.env.ANTHROPIC_API_KEY);
-  const openrouterKeyConfigured = Boolean(process.env.OPENROUTER_API_KEY);
   return {
     liveMode: process.env.RAZORPAY_LIVE_MODE === "true",
-    anthropicKeyConfigured,
-    openrouterKeyConfigured,
+    openrouterKeyConfigured: Boolean(process.env.OPENROUTER_API_KEY),
+    openrouterModel: process.env.OPENROUTER_MODEL || "anthropic/claude-sonnet-4.5 (default)",
     razorpayKeyConfigured: Boolean(
       process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET
     ),
-    activeLlmProvider: anthropicKeyConfigured
-      ? "anthropic"
-      : openrouterKeyConfigured
-        ? "openrouter"
-        : null,
   };
 }

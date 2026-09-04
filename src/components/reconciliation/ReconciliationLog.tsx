@@ -4,12 +4,13 @@ import { useState, useMemo } from "react";
 import type { Report } from "@/lib/types";
 import { CategoryBreakdownChart } from "@/components/charts/CategoryBreakdownChart";
 import { ExceptionRow } from "@/components/ExceptionRow";
+import { BenfordNote } from "./BenfordNote";
 
 // The full audit trail: interactive category filter + every exception,
 // sorted by amount. This is also the required table-view twin for the
 // read-only category chart on Overview.
 export function ReconciliationLog({ report }: { report: Report }) {
-  const { exceptions_by_category, exceptions } = report;
+  const { exceptions_by_category, exceptions, benford } = report;
   const [filter, setFilter] = useState<string | null>(null);
 
   const filteredExceptions = useMemo(() => {
@@ -47,6 +48,8 @@ export function ReconciliationLog({ report }: { report: Report }) {
           onFilter={setFilter}
         />
       </section>
+
+      <BenfordNote benford={benford} />
 
       <section>
         <h2 className="font-mono text-[12px] uppercase tracking-widest text-text-dim mb-4 pb-2.5 border-b border-ink-700">

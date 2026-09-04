@@ -5,11 +5,11 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 
 const NAV_ITEMS = [
-  { href: "/", label: "Overview", icon: IconGrid },
-  { href: "/reconciliation", label: "Reconciliation Log", icon: IconList },
-  { href: "/settlements", label: "Settlements", icon: IconStack },
-  { href: "/tax", label: "Tax & GST", icon: IconPercent },
-  { href: "/settings", label: "Data Source", icon: IconPlug },
+  { href: "/app", label: "Overview", icon: IconGrid },
+  { href: "/app/reconciliation", label: "Reconciliation Log", icon: IconList },
+  { href: "/app/settlements", label: "Settlements", icon: IconStack },
+  { href: "/app/tax", label: "Tax & GST", icon: IconPercent },
+  { href: "/app/settings", label: "Data Source", icon: IconPlug },
 ] as const;
 
 export function Sidebar() {
@@ -33,7 +33,7 @@ export function Sidebar() {
           <IconMenu />
         </button>
         <span className="font-mono text-[11px] tracking-widest text-stamp uppercase">
-          Settlement Unpacker
+          Unsettle
         </span>
       </div>
 
@@ -51,9 +51,9 @@ export function Sidebar() {
       >
         <div className="px-5 py-6 border-b border-ink-700 hidden md:block">
           <div className="font-mono text-[10.5px] tracking-widest text-stamp uppercase">
-            Razorpay · Track 04
+            Settlement reconciliation
           </div>
-          <div className="font-display text-lg text-text mt-1">Settlement Unpacker</div>
+          <div className="font-display text-lg text-text mt-1">Unsettle</div>
         </div>
 
         <div className="flex-1 overflow-y-auto py-3">

@@ -1,4 +1,5 @@
 import type { Exception, SettlementLine, Order } from "./types";
+import { callLLMForJSON } from "./llmProvider";
 
 // --- Why this file exists ---------------------------------------------------
 // Everything in reconcile.ts is deterministic: fixed thresholds (amt <= 1.0
@@ -15,11 +16,11 @@ import type { Exception, SettlementLine, Order } from "./types";
 // its own confidence and explanation -- genuinely different output than the
 // rule engine could produce, because it can weigh multiple weak signals
 // together the way a human reviewer would.
-
-const CLAUDE_MODEL = "claude-sonnet-4-6";
-const OPENROUTER_MODEL = "anthropic/claude-sonnet-4.5"; // OpenRouter's naming for the same model family
-const ANTHROPIC_API_URL = "https://api.anthropic.com/v1/messages";
-const OPENROUTER_API_URL = "https://openrouter.ai/api/v1/chat/completions";
+//
+// The actual provider call (OpenRouter, auth, parsing) lives in
+// llmProvider.ts, shared with qaAgent.ts (the Settlement Q&A chat) so
+// there's exactly one place that knows how to talk to it. The model itself
+// is a config choice (OPENROUTER_MODEL), not hardcoded here.
 
 export interface ReasonedResult {
   category: Exception["category"];
@@ -56,100 +57,6 @@ Respond with ONLY a JSON object, no other text, no markdown fences:
 {"category": "...", "confidence": 0.0, "explanation": "...", "suggested_action": "..."}`;
 }
 
-// Two providers supported, auto-selected by whichever key is set --
-// ANTHROPIC_API_KEY is tried first, OPENROUTER_API_KEY as a fallback. Both
-// give you Claude; they just speak different request/response shapes.
-// Anthropic's native API uses its own /v1/messages schema. OpenRouter is a
-// model-routing proxy: one API key, many providers/models behind it, but it
-// speaks the OpenAI-style chat/completions schema instead -- different
-// field names for the same underlying request, and the model name is
-// prefixed with the provider ("anthropic/claude-sonnet-4.5") since
-// OpenRouter needs to know who to route the call to.
-async function callClaude(prompt: string): Promise<Record<string, unknown>> {
-  const anthropicKey = process.env.ANTHROPIC_API_KEY;
-  const openrouterKey = process.env.OPENROUTER_API_KEY;
-
-  if (anthropicKey) {
-    return callAnthropic(prompt, anthropicKey);
-  }
-  if (openrouterKey) {
-    return callOpenRouter(prompt, openrouterKey);
-  }
-  throw new Error(
-    "Neither ANTHROPIC_API_KEY nor OPENROUTER_API_KEY is set. Add one to " +
-      ".env.local to enable AI-reasoned classification."
-  );
-}
-
-async function callAnthropic(
-  prompt: string,
-  apiKey: string
-): Promise<Record<string, unknown>> {
-  const res = await fetch(ANTHROPIC_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": apiKey,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 400,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`Anthropic API error ${res.status}: ${body}`);
-  }
-
-  const data = await res.json();
-  const textBlock = data.content?.find((b: { type: string }) => b.type === "text");
-  if (!textBlock?.text) {
-    throw new Error("Anthropic API returned no text content: " + JSON.stringify(data));
-  }
-  return parseJsonFromText(textBlock.text);
-}
-
-async function callOpenRouter(
-  prompt: string,
-  apiKey: string
-): Promise<Record<string, unknown>> {
-  const res = await fetch(OPENROUTER_API_URL, {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: OPENROUTER_MODEL,
-      max_tokens: 400,
-      messages: [{ role: "user", content: prompt }],
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text();
-    throw new Error(`OpenRouter API error ${res.status}: ${body}`);
-  }
-
-  const data = await res.json();
-  // OpenAI-compatible shape: choices[0].message.content, not content[].text.
-  const text = data.choices?.[0]?.message?.content;
-  if (!text) {
-    throw new Error("OpenRouter API returned no message content: " + JSON.stringify(data));
-  }
-  return parseJsonFromText(text);
-}
-
-function parseJsonFromText(text: string): Record<string, unknown> {
-  // Defensive parse: the prompt asks for raw JSON, but strip code fences
-  // just in case the model wraps it anyway.
-  const cleaned = text.replace(/```json|```/g, "").trim();
-  return JSON.parse(cleaned);
-}
-
 /**
  * Re-reasons a single low-confidence exception through Claude. Falls back
  * to the original rule-based result (unchanged, with ai_reasoned omitted)
@@ -178,7 +85,7 @@ export async function reasonAboutException(
         .filter((a): a is number => typeof a === "number"),
     };
 
-    const result = await callClaude(buildPrompt(exception, ctx));
+    const result = await callLLMForJSON(buildPrompt(exception, ctx));
 
     return {
       ...exception,

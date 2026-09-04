@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
-import { getReport } from "@/lib/getReport";
+import { requireUser } from "@/lib/auth/requireUser";
+import { getOrCreateLatestRun } from "@/lib/db/runs";
 import { GstMeter } from "@/components/charts/GstMeter";
 
-export const metadata: Metadata = { title: "Tax & GST · Settlement Unpacker" };
+export const metadata: Metadata = { title: "Tax & GST · Unsettle" };
 
 export default async function TaxPage() {
-  const { summary } = await getReport();
+  const user = await requireUser();
+  const { report } = await getOrCreateLatestRun(user.id);
+  const { summary } = report;
 
   return (
     <div className="fade-in-up">

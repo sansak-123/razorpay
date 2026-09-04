@@ -44,7 +44,7 @@ async function connectClient(): Promise<Client> {
   );
 
   const client = new Client(
-    { name: "settlement-unpacker", version: "1.0.0" },
+    { name: "unsettle", version: "1.0.0" },
     { capabilities: {} }
   );
 

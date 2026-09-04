@@ -198,9 +198,35 @@ export function generateData(): GeneratedData {
     batchNum++;
   }
 
-  // Duplicate settlement line
+  // Duplicate settlement line -- an EXACT duplicate (same order, same
+  // amount, same batch). This is the case the old exact-fingerprint
+  // detectDuplicates() logic was built for, and still the easy case for the
+  // new probabilistic scoring too (it scores ~1.0).
   const dupSource = choice(settlementLines.slice(0, 20));
   settlementLines.push({ ...dupSource, entity_id: randId("pay") });
+
+  // A "soft" duplicate -- the same order resubmitted ~40 hours later for a
+  // noticeably different amount (a partial resubmission, not a byte-for-
+  // byte copy). The old exact-match logic could never have caught this: the
+  // amount and timestamp both differ. It exists specifically so the new
+  // Fellegi-Sunter-style weighted scoring in reconcile.ts has a genuine
+  // case to catch that the previous version would have silently missed --
+  // scores ~0.76 (order+method match fully, amount and timing partially),
+  // landing in the "flag for review, route to Claude" band rather than the
+  // "confident enough to auto-exclude from revenue" band.
+  const softDupSource = choice(
+    settlementLines.filter((l) => l.type === "payment").slice(0, 20)
+  );
+  const softDupCredit = Math.round(softDupSource.credit * 0.62);
+  const softDupSettled = new Date(softDupSource.settled_at.replace(" ", "T"));
+  softDupSettled.setHours(softDupSettled.getHours() + 40);
+  settlementLines.push({
+    ...softDupSource,
+    entity_id: randId("pay"),
+    credit: softDupCredit,
+    amount: softDupCredit,
+    settled_at: softDupSettled.toISOString().slice(0, 16).replace("T", " "),
+  });
 
   // A few orders still pending settlement (never appear in settlement lines)
   for (let i = 0; i < 3; i++) {
