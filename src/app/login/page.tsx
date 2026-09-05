@@ -15,7 +15,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-navy-900 px-6">
       <div className="w-full max-w-sm text-center">
         <div
-          className="text-[15px] font-semibold text-landing-white mb-8"
+          className="text-[17px] font-semibold text-landing-white mb-8"
           style={{ fontFamily: "var(--font-space-grotesk)" }}
         >
           Unsettle
@@ -26,13 +26,13 @@ export default function LoginPage() {
         >
           Sign in to see your settlements
         </h1>
-        <p className="text-[14px] text-landing-text-dim mb-8 leading-relaxed">
+        <p className="text-[16px] text-landing-text-dim mb-8 leading-relaxed">
           Your reconciliation runs and chat history are tied to your account
           — nobody else can see them.
         </p>
         <button
           onClick={signInWithGoogle}
-          className="w-full flex items-center justify-center gap-3 rounded-full bg-blue px-6 py-3.5 text-[14.5px] font-semibold text-navy-900 transition-all hover:shadow-[0_0_0_1px_var(--color-blue),0_8px_28px_-8px_var(--color-blue)]"
+          className="w-full flex items-center justify-center gap-3 rounded-full bg-blue px-6 py-3.5 text-[16.5px] font-semibold text-navy-900 transition-all hover:shadow-[0_0_0_1px_var(--color-blue),0_8px_28px_-8px_var(--color-blue)]"
         >
           <GoogleIcon />
           Continue with Google

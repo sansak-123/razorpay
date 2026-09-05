@@ -12,12 +12,6 @@ interface Props {
   onFilter?: (category: string | null) => void;
 }
 
-// Part-to-whole across 4 named categories -> horizontal bar, not a donut
-// (donuts for comparing close values are a named anti-pattern). Category
-// hues are the fixed, validated categorical set from categoryMeta.ts --
-// never reassigned by sort order, only the bar length responds to amount.
-// Interactive (click-to-filter) on the Reconciliation Log; passed without
-// onFilter it's a read-only teaser on Overview.
 export function CategoryBreakdownChart({ categories, activeFilter, onFilter }: Props) {
   const [hover, setHover] = useState<{ key: string; x: number; y: number } | null>(null);
   const entries = Object.entries(categories).sort((a, b) => b[1].amount - a[1].amount);
@@ -65,9 +59,9 @@ export function CategoryBreakdownChart({ categories, activeFilter, onFilter }: P
               interactive ? "cursor-pointer" : ""
             } ${activeFilter && !isActive ? "opacity-35" : "opacity-100"}`}
           >
-            <div className="text-[13px] text-text-dim">
+            <div className="text-[14.5px] text-text-dim">
               {meta?.label ?? cat}{" "}
-              <span className="font-mono text-[11px] text-text-dim/70">
+              <span className="font-mono text-[12.5px] text-text-dim/70">
                 ×{data.count}
               </span>
             </div>
@@ -80,7 +74,7 @@ export function CategoryBreakdownChart({ categories, activeFilter, onFilter }: P
                 }}
               />
             </div>
-            <div className="font-mono text-[13px] text-right text-text">
+            <div className="font-mono text-[14.5px] text-right text-text">
               ₹{data.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
             </div>
           </Tag>
@@ -94,10 +88,10 @@ export function CategoryBreakdownChart({ categories, activeFilter, onFilter }: P
           if (!data) return null;
           return (
             <ChartTooltip x={hover.x} y={hover.y} visible>
-              <div className="font-mono text-[11px] uppercase tracking-wide" style={{ color: meta?.hex }}>
+              <div className="font-mono text-[12.5px] uppercase tracking-wide" style={{ color: meta?.hex }}>
                 {meta?.label}
               </div>
-              <div className="font-mono text-[13px] text-text">
+              <div className="font-mono text-[14.5px] text-text">
                 ₹{data.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })} · {data.count} case{data.count === 1 ? "" : "s"}
               </div>
             </ChartTooltip>

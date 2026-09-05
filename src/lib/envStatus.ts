@@ -1,8 +1,3 @@
-// Server-only status booleans for the Data Source settings page and the
-// TopBar pill. Deliberately returns presence flags, never the secret values
-// themselves -- this file's whole job is to be safe to pass into a Server
-// Component's render output.
-
 export interface EnvStatus {
   liveMode: boolean;
   openrouterKeyConfigured: boolean;

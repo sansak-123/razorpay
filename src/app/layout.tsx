@@ -2,12 +2,6 @@ import type { Metadata } from "next";
 import { Fraunces, Inter, JetBrains_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 
-// next/font self-hosts these at build time -- the browser never makes a
-// request to fonts.googleapis.com, so there's no runtime network
-// dependency despite using Google-sourced font files. Each font exposes a
-// CSS variable that globals.css's @theme block maps to the font-display /
-// font-sans / font-mono tokens the rest of the app already uses, so no
-// component needed to change.
 const fraunces = Fraunces({
   subsets: ["latin"],
   variable: "--font-fraunces",
@@ -24,10 +18,7 @@ const jetbrainsMono = JetBrains_Mono({
   variable: "--font-jetbrains-mono",
   display: "swap",
 });
-// Landing-page-only headline font -- deliberately NOT wired into
-// --font-display (that stays Fraunces for the dashboard's own voice). The
-// marketing page has a different register (bold geometric grotesk, not the
-// ledger's serif) so it gets its own token, applied selectively.
+
 const spaceGrotesk = Space_Grotesk({
   subsets: ["latin"],
   weight: ["500", "700"],
@@ -41,12 +32,28 @@ export const metadata: Metadata = {
     "Order-level reconciliation for lumped Razorpay net settlements.",
 };
 
+const THEME_INIT_SCRIPT = `
+(function () {
+  try {
+    var stored = localStorage.getItem("unsettle-theme");
+    var theme = stored === "dark" || stored === "light"
+      ? stored
+      : (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+    document.documentElement.setAttribute("data-theme", theme);
+  } catch (e) {}
+})();
+`;
+
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`h-full antialiased ${fraunces.variable} ${inter.variable} ${jetbrainsMono.variable} ${spaceGrotesk.variable}`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-full flex flex-col bg-ink-900 text-text font-sans">
         {children}
       </body>

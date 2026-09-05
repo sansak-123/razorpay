@@ -1,34 +1,12 @@
-import type { Exception, SettlementLine, Order } from "./types";
+import type { Exception, ExceptionCategory, SettlementLine, Order } from "./types";
 import { callLLMForJSON } from "./llmProvider";
 
-// --- Why this file exists ---------------------------------------------------
-// Everything in reconcile.ts is deterministic: fixed thresholds (amt <= 1.0
-// -> ROUNDING), fixed lookups (order_id found -> matched). That's correct
-// and fast for the cases it covers, but it's a matching SCRIPT, not an AI
-// agent -- there's no judgment involved. Real judgment is needed precisely
-// where the rules run out: the low-confidence UNEXPLAINED cases where a
-// human accountant would look at the surrounding context (amount, timing,
-// nearby orders in the same batch) and reason about what probably happened,
-// rather than apply a single threshold.
-//
-// This module sends exactly those low-confidence cases to Claude, with the
-// surrounding batch context, and asks for a reasoned re-classification with
-// its own confidence and explanation -- genuinely different output than the
-// rule engine could produce, because it can weigh multiple weak signals
-// together the way a human reviewer would.
-//
-// The actual provider call (OpenRouter, auth, parsing) lives in
-// llmProvider.ts, shared with qaAgent.ts (the Settlement Q&A chat) so
-// there's exactly one place that knows how to talk to it. The model itself
-// is a config choice (OPENROUTER_MODEL), not hardcoded here.
-
-export interface ReasonedResult {
-  category: Exception["category"];
-  confidence: number;
-  explanation: string;
-  suggested_action: string;
-  ai_reasoned: true;
-}
+const VALID_CATEGORIES: readonly ExceptionCategory[] = [
+  "DUPLICATE",
+  "REFUND",
+  "ROUNDING",
+  "UNEXPLAINED",
+];
 
 interface BatchContext {
   settlementId: string;
@@ -49,21 +27,72 @@ Exception details:
 - Order amounts elsewhere in this same batch, for context: ${ctx.nearbyOrderAmounts.slice(0, 8).join(", ")}
 - Rule engine's note: ${exception.explanation}
 
-Classify this exception into exactly one of: FEE_DEDUCTION, TAX_DEDUCTION, REFUND, ROUNDING, DUPLICATE, UNEXPLAINED.
+Classify this exception into exactly one of: DUPLICATE, REFUND, ROUNDING, UNEXPLAINED. These are the only four categories this system recognizes -- do not invent others.
 
-Reason about whether the amount plausibly matches a partial refund pattern against a nearby order, a rounding/currency artifact, a fee/tax structure, or is genuinely inexplicable given the context. Assign a confidence (0-1) reflecting how sure you actually are -- don't inflate it. Write one sentence explaining your reasoning in plain language a small business owner could understand, and one sentence with a concrete suggested next action.
+Reason about whether the amount plausibly matches a partial refund pattern against a nearby order, a rounding/currency artifact, a duplicate settlement, or is genuinely inexplicable given the context. Assign a confidence (0-1) reflecting how sure you actually are -- don't inflate it. Write one sentence explaining your reasoning in plain language a small business owner could understand, and one sentence with a concrete suggested next action. Only reference an order_id in your explanation if it was given to you above -- never invent one.
 
 Respond with ONLY a JSON object, no other text, no markdown fences:
 {"category": "...", "confidence": 0.0, "explanation": "...", "suggested_action": "..."}`;
 }
 
-/**
- * Re-reasons a single low-confidence exception through Claude. Falls back
- * to the original rule-based result (unchanged, with ai_reasoned omitted)
- * if no key is configured or the call fails -- this keeps the whole
- * pipeline working in synthetic/no-key demos, degrading gracefully rather
- * than crashing the report.
- */
+type VerifiedResult =
+  | {
+      valid: true;
+      category: ExceptionCategory;
+      confidence: number;
+      explanation: string;
+      suggested_action: string;
+    }
+  | { valid: false; reason: string };
+
+const ORDER_ID_PATTERN = /order_[A-Za-z0-9]{6,}/g;
+
+export function verifyReasonedResult(
+  result: Record<string, unknown>,
+  allOrders: Order[]
+): VerifiedResult {
+  const { category, confidence, explanation, suggested_action } = result;
+
+  if (
+    typeof category !== "string" ||
+    !VALID_CATEGORIES.includes(category as ExceptionCategory)
+  ) {
+    return { valid: false, reason: `invalid category: ${JSON.stringify(category)}` };
+  }
+
+  if (
+    typeof confidence !== "number" ||
+    Number.isNaN(confidence) ||
+    confidence < 0 ||
+    confidence > 1
+  ) {
+    return { valid: false, reason: `invalid confidence: ${JSON.stringify(confidence)}` };
+  }
+
+  if (typeof explanation !== "string" || !explanation.trim()) {
+    return { valid: false, reason: "missing or empty explanation" };
+  }
+
+  const realOrderIds = new Set(allOrders.map((o) => o.order_id));
+  const mentionedOrderIds = explanation.match(ORDER_ID_PATTERN) ?? [];
+  for (const id of mentionedOrderIds) {
+    if (!realOrderIds.has(id)) {
+      return {
+        valid: false,
+        reason: `explanation references order ${id}, which doesn't exist in the ledger`,
+      };
+    }
+  }
+
+  return {
+    valid: true,
+    category: category as ExceptionCategory,
+    confidence,
+    explanation,
+    suggested_action: typeof suggested_action === "string" ? suggested_action : "",
+  };
+}
+
 export async function reasonAboutException(
   exception: Exception,
   allLines: SettlementLine[],
@@ -86,45 +115,36 @@ export async function reasonAboutException(
     };
 
     const result = await callLLMForJSON(buildPrompt(exception, ctx));
+    const verified = verifyReasonedResult(result, allOrders);
+
+    if (!verified.valid) {
+      return { ...exception, verification_failed: true, verification_failure_reason: verified.reason };
+    }
 
     return {
       ...exception,
-      category: (result.category as Exception["category"]) ?? exception.category,
-      confidence:
-        typeof result.confidence === "number" ? result.confidence : exception.confidence,
-      explanation: (result.explanation as string) ?? exception.explanation,
-      suggested_action:
-        (result.suggested_action as string) ?? exception.suggested_action,
+      category: verified.category,
+      confidence: verified.confidence,
+      explanation: verified.explanation,
+      suggested_action: verified.suggested_action || exception.suggested_action,
       ai_reasoned: true,
     };
-  } catch {
-    // Graceful degradation: no key, network error, or bad JSON all fall
-    // back to the original rule-based classification rather than breaking
-    // the report. The caller can tell reasoning didn't run because
-    // ai_reasoned stays undefined on the returned exception.
+  } catch (err) {
+    console.warn("reasonAboutException: LLM call failed, keeping rule-based classification", err);
     return exception;
   }
 }
 
-/**
- * Runs AI reasoning over every low-confidence exception in a report,
- * concurrently. Only exceptions the rule engine was already unsure about
- * (confidence < 0.6) go through this -- clear-cut cases (a refund matched
- * to a real order, obvious rounding dust) don't need an LLM call, which
- * keeps latency and cost down and matches how a real finance team would
- * triage: don't re-review what's already confidently explained.
- */
 export async function reasonAboutLowConfidenceExceptions(
   exceptions: Exception[],
   allLines: SettlementLine[],
   allOrders: Order[]
 ): Promise<Exception[]> {
-  const results = await Promise.all(
-    exceptions.map((e) =>
-      e.confidence < 0.6
-        ? reasonAboutException(e, allLines, allOrders)
-        : Promise.resolve(e)
-    )
-  );
+  const results: Exception[] = [];
+  for (const e of exceptions) {
+    results.push(
+      e.confidence < 0.6 ? await reasonAboutException(e, allLines, allOrders) : e
+    );
+  }
   return results;
 }

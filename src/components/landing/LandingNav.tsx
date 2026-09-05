@@ -20,13 +20,13 @@ export function LandingNav() {
       }`}
     >
       <span
-        className="text-[15px] font-semibold tracking-tight text-landing-white"
+        className="text-[17px] font-semibold tracking-tight text-landing-white"
         style={{ fontFamily: "var(--font-space-grotesk)" }}
       >
         Unsettle
       </span>
 
-      <div className="hidden md:flex items-center gap-8 text-[13.5px] text-landing-text-dim">
+      <div className="hidden md:flex items-center gap-8 text-[15.5px] text-landing-text-dim">
         <a href="#problem" className="hover:text-landing-white transition-colors">Problem</a>
         <a href="#how-it-works" className="hover:text-landing-white transition-colors">How it works</a>
         <a href="#try-it" className="hover:text-landing-white transition-colors">Try it live</a>
@@ -34,9 +34,9 @@ export function LandingNav() {
 
       <Link
         href="/app"
-        className="group flex items-center gap-1.5 rounded-full border border-blue bg-blue px-4 py-2 text-[13px] font-medium text-navy-900 transition-all hover:bg-transparent hover:text-blue"
+        className="group flex items-center gap-1.5 rounded-full border border-blue bg-blue px-4 py-2 text-[14.5px] font-medium text-navy-900 transition-all hover:bg-transparent hover:text-blue"
       >
-        Open Live Demo
+        Sign up / Sign in
         <span className="transition-transform group-hover:translate-x-0.5">→</span>
       </Link>
     </nav>

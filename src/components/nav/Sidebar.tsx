@@ -1,40 +1,54 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { ThemeToggle } from "./ThemeToggle";
 
 const NAV_ITEMS = [
   { href: "/app", label: "Overview", icon: IconGrid },
+  { href: "/app/chat", label: "Ask AI", icon: IconChat },
   { href: "/app/reconciliation", label: "Reconciliation Log", icon: IconList },
   { href: "/app/settlements", label: "Settlements", icon: IconStack },
   { href: "/app/tax", label: "Tax & GST", icon: IconPercent },
   { href: "/app/settings", label: "Data Source", icon: IconPlug },
 ] as const;
 
+const COLLAPSE_KEY = "unsettle-sidebar-collapsed";
+
 export function Sidebar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
+    setReady(true);
+  }, []);
+
+  function toggleCollapsed() {
+    const next = !collapsed;
+    setCollapsed(next);
+    window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+  }
 
   return (
     <>
-      {/* Mobile top strip: hamburger only, shown below md. Fixed (not
-          static) deliberately -- Sidebar returns a fragment, so a static
-          sibling here would become a direct flex item of the parent's
-          `flex` row (the fragment doesn't wrap it), splitting the screen
-          into two columns instead of stacking. Fixed positioning takes it
-          out of flow the same way the nav below already is. */}
-      <div className="md:hidden fixed top-0 inset-x-0 z-20 flex items-center gap-3 px-4 py-3 border-b border-ink-700 bg-ink-900">
-        <button
-          onClick={() => setOpen(true)}
-          aria-label="Open navigation"
-          className="p-1.5 -ml-1.5 rounded-sm hover-glow border border-transparent"
-        >
-          <IconMenu />
-        </button>
-        <span className="font-mono text-[11px] tracking-widest text-stamp uppercase">
-          Unsettle
-        </span>
+      <div className="md:hidden fixed top-0 inset-x-0 z-20 flex items-center justify-between gap-3 px-4 py-3 border-b border-ink-700 bg-ink-900">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => setOpen(true)}
+            aria-label="Open navigation"
+            className="p-1.5 -ml-1.5 rounded-sm hover-glow border border-transparent"
+          >
+            <IconMenu />
+          </button>
+          <span className="font-mono text-[12.5px] tracking-widest text-stamp uppercase">
+            Unsettle
+          </span>
+        </div>
+        <ThemeToggle compact />
       </div>
 
       {open && (
@@ -45,15 +59,21 @@ export function Sidebar() {
       )}
 
       <nav
-        className={`fixed md:static z-40 top-0 left-0 h-full w-64 shrink-0 border-r border-ink-700 bg-ink-900 flex flex-col transition-transform duration-200 ease-out md:translate-x-0 ${
-          open ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed md:static z-40 top-0 left-0 h-full shrink-0 border-r border-ink-700 bg-ink-900 flex flex-col transition-[transform,width] duration-200 ease-out md:translate-x-0 w-64 ${
+          collapsed ? "md:w-[76px]" : "md:w-64"
+        } ${open ? "translate-x-0" : "-translate-x-full"} ${ready ? "" : "md:invisible"}`}
       >
-        <div className="px-5 py-6 border-b border-ink-700 hidden md:block">
-          <div className="font-mono text-[10.5px] tracking-widest text-stamp uppercase">
-            Settlement reconciliation
-          </div>
-          <div className="font-display text-lg text-text mt-1">Unsettle</div>
+        <div className={`border-b border-ink-700 hidden md:flex items-center ${collapsed ? "justify-center px-3 py-6" : "justify-between px-5 py-6"}`}>
+          {collapsed ? (
+            <span className="font-display text-lg text-stamp">U</span>
+          ) : (
+            <div>
+              <div className="font-mono text-[12px] tracking-widest text-stamp uppercase">
+                Settlement reconciliation
+              </div>
+              <div className="font-display text-lg text-text mt-1">Unsettle</div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto py-3">
@@ -63,8 +83,11 @@ export function Sidebar() {
               <Link
                 key={href}
                 href={href}
+                title={collapsed ? label : undefined}
                 onClick={() => setOpen(false)}
-                className={`group relative flex items-center gap-3 px-5 py-2.5 mx-2 rounded-sm text-[13.5px] transition-colors duration-150 ${
+                className={`group relative flex items-center gap-3 py-2.5 mx-2 rounded-sm text-[16px] transition-colors duration-150 ${
+                  collapsed ? "md:justify-center md:px-0 px-5" : "px-5"
+                } ${
                   isActive
                     ? "text-text bg-ink-800"
                     : "text-text-dim hover:text-text hover:bg-ink-800/60"
@@ -80,21 +103,46 @@ export function Sidebar() {
                     isActive ? "text-stamp" : "text-text-dim group-hover:text-stamp-dim"
                   }`}
                 />
-                {label}
+                <span className={collapsed ? "md:hidden" : ""}>{label}</span>
               </Link>
             );
           })}
         </div>
 
-        <div className="px-5 py-4 border-t border-ink-700 hidden md:block font-mono text-[10px] text-text-dim leading-relaxed">
-          Order-level reconciliation for lumped Razorpay settlements.
+        <div className={`border-t border-ink-700 hidden md:flex items-center gap-2 px-3 py-3 ${collapsed ? "justify-center" : "justify-between"}`}>
+          {!collapsed && <ThemeToggle />}
+          <button
+            onClick={toggleCollapsed}
+            aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+            className="hover-glow flex h-8 w-8 shrink-0 items-center justify-center rounded-sm border border-ink-700 text-text-dim hover:text-text cursor-pointer"
+          >
+            <IconCollapse collapsed={collapsed} />
+          </button>
         </div>
+
+        {!collapsed && (
+          <div className="px-5 py-4 border-t border-ink-700 hidden md:block font-mono text-[12px] text-text-dim leading-relaxed">
+            Rules resolve what they can for free. AI only reasons about what&apos;s
+            genuinely unsure — and every AI judgment is independently verified
+            before it&apos;s trusted.
+          </div>
+        )}
       </nav>
     </>
   );
 }
 
 type IconProps = { className?: string };
+
+function IconChat({ className }: IconProps) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className={className}>
+      <rect x="1.5" y="2.5" width="13" height="8.5" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
+      <path d="M5 11v2.5l3-2.5" stroke="currentColor" strokeWidth="1.3" strokeLinejoin="round" />
+    </svg>
+  );
+}
 
 function IconGrid({ className }: IconProps) {
   return (
@@ -148,6 +196,20 @@ function IconPlug({ className }: IconProps) {
       <rect x="3.5" y="5.5" width="9" height="4.5" rx="1.5" stroke="currentColor" strokeWidth="1.3" />
       <path d="M8 10V12.5" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" />
       <circle cx="8" cy="13.5" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+function IconCollapse({ collapsed }: { collapsed: boolean }) {
+  return (
+    <svg
+      width="14"
+      height="14"
+      viewBox="0 0 16 16"
+      fill="none"
+      className={`transition-transform duration-200 ${collapsed ? "rotate-180" : ""}`}
+    >
+      <path d="M10.5 3L5.5 8L10.5 13" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
 }

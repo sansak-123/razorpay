@@ -1,12 +1,5 @@
 const CATEGORIES = ["DUPLICATE", "REFUND", "ROUNDING", "UNEXPLAINED"];
 
-// Kinetic-typography marquee: your actual exception taxonomy, not decorative
-// filler text -- telegraphs "this tool understands the shape of settlement
-// problems" as a moving header. Pure CSS (marqueeScroll keyframe in
-// globals.css): content is duplicated once below so translating by exactly
-// -50% loops seamlessly, no JS/library needed. Outline-only text via
-// -webkit-text-stroke so it reads against the navy background through the
-// stroke alone.
 export function CategoryMarquee() {
   const track = [...CATEGORIES, ...CATEGORIES, ...CATEGORIES, ...CATEGORIES];
 

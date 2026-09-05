@@ -1,11 +1,5 @@
 import type { SettlementLine, Order, BankRow } from "./types";
 
-// --- Seeded PRNG -----------------------------------------------------------
-// JavaScript's Math.random() has NO seed parameter -- every run gives
-// different numbers, which would make our "demo" data different every time
-// you refresh the page. Mulberry32 is a small, fast, well-known algorithm
-// that turns one integer "seed" into a repeatable sequence of pseudo-random
-// numbers between 0 and 1, just like Python's random.seed(42) did.
 function mulberry32(seed: number) {
   let a = seed;
   return function () {
@@ -17,16 +11,6 @@ function mulberry32(seed: number) {
   };
 }
 
-// IMPORTANT: `rand` must be created FRESH inside generateData(), not once
-// at module scope. A module-level PRNG keeps its internal state across every
-// call for as long as the Node.js process stays alive (module instances are
-// cached and reused, not re-run per request) -- so a top-level `const rand =
-// mulberry32(42)` would silently produce different numbers on the 2nd, 3rd,
-// ...Nth call even though the seed is always "42". That bug is exactly why
-// this app's first version showed different totals on the page vs. the
-// /api/report endpoint: two different call sites, two different points in
-// the same drifting sequence. Passing a fresh PRNG instance through every
-// helper below guarantees the same seed always reproduces the same dataset.
 function makeHelpers(rand: () => number) {
   function randFloat(min: number, max: number) {
     return min + rand() * (max - min);
@@ -133,7 +117,6 @@ export function generateData(): GeneratedData {
       batchOrders.push({ orderId, gross });
     }
 
-    // Seed a partial refund within the batch
     if (batchOrders.length > 3) {
       const refundOrder = choice(batchOrders);
       const refundAmt = round2(refundOrder.gross * randFloat(0.2, 0.6));
@@ -154,7 +137,6 @@ export function generateData(): GeneratedData {
       });
     }
 
-    // Rounding dust
     if (rand() < 0.4) {
       const dust = round2(randFloat(0.01, 0.5));
       settlementLines.push({
@@ -174,7 +156,6 @@ export function generateData(): GeneratedData {
       });
     }
 
-    // Genuinely unexplained deduction, every 3rd batch
     if (batchNum % 3 === 0) {
       const mystery = round2(randFloat(15, 150));
       settlementLines.push({
@@ -198,22 +179,9 @@ export function generateData(): GeneratedData {
     batchNum++;
   }
 
-  // Duplicate settlement line -- an EXACT duplicate (same order, same
-  // amount, same batch). This is the case the old exact-fingerprint
-  // detectDuplicates() logic was built for, and still the easy case for the
-  // new probabilistic scoring too (it scores ~1.0).
   const dupSource = choice(settlementLines.slice(0, 20));
   settlementLines.push({ ...dupSource, entity_id: randId("pay") });
 
-  // A "soft" duplicate -- the same order resubmitted ~40 hours later for a
-  // noticeably different amount (a partial resubmission, not a byte-for-
-  // byte copy). The old exact-match logic could never have caught this: the
-  // amount and timestamp both differ. It exists specifically so the new
-  // Fellegi-Sunter-style weighted scoring in reconcile.ts has a genuine
-  // case to catch that the previous version would have silently missed --
-  // scores ~0.76 (order+method match fully, amount and timing partially),
-  // landing in the "flag for review, route to Claude" band rather than the
-  // "confident enough to auto-exclude from revenue" band.
   const softDupSource = choice(
     settlementLines.filter((l) => l.type === "payment").slice(0, 20)
   );
@@ -228,7 +196,6 @@ export function generateData(): GeneratedData {
     settled_at: softDupSettled.toISOString().slice(0, 16).replace("T", " "),
   });
 
-  // A few orders still pending settlement (never appear in settlement lines)
   for (let i = 0; i < 3; i++) {
     const orderId = randId("order");
     const paymentId = randId("pay");
@@ -243,13 +210,11 @@ export function generateData(): GeneratedData {
     });
   }
 
-  // A settlement line referencing an order that doesn't exist in the ledger
   const ghost = { ...choice(settlementLines.slice(0, 20)) };
   ghost.entity_id = randId("pay");
   ghost.order_id = randId("order");
   settlementLines.push(ghost);
 
-  // Bank statement: one lumped credit per UTR
   const byUtr = new Map<string, { credit: number; debit: number; date: string }>();
   for (const line of settlementLines) {
     const agg = byUtr.get(line.settlement_utr) ?? {

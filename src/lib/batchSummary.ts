@@ -6,19 +6,13 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-// The Settlements page needs a per-batch view (UTR, bank credit vs. lines
-// total, order count) that Report/types.ts deliberately doesn't carry --
-// that arithmetic is computed and discarded inside
-// SettlementUnpacker.processBatches(). This reuses the same grouping/total
-// helpers reconcile.ts exports rather than re-deriving the numbers, so the
-// two can never drift apart.
 export interface BatchSummary {
   settlement_id: string;
   utr: string;
   value_date: string;
-  credited_amount: number; // rupees, from the bank statement
-  lines_total: number; // rupees, sum of settlement lines
-  diff: number; // credited_amount - lines_total
+  credited_amount: number;
+  lines_total: number;
+  diff: number;
   order_count: number;
   exception_count: number;
   exception_amount: number;

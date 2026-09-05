@@ -12,8 +12,6 @@ const WIDTH = 640;
 const HEIGHT = 220;
 const MARGIN = { top: 16, right: 16, bottom: 28, left: 56 };
 
-// Trend-over-time job -> line + area, single series, one axis. No legend
-// needed for one series (the card title names it, per the dataviz skill).
 export function SettlementTrendChart({ batches }: { batches: BatchSummary[] }) {
   const [hoverIdx, setHoverIdx] = useState<number | null>(null);
 
@@ -60,7 +58,7 @@ export function SettlementTrendChart({ batches }: { batches: BatchSummary[] }) {
   const bisectDate = bisector<(typeof points)[number], Date>((p) => p.date).left;
 
   if (points.length === 0) {
-    return <p className="text-text-dim text-[13px]">No settlement batches yet.</p>;
+    return <p className="text-text-dim text-[14.5px]">No settlement batches yet.</p>;
   }
 
   const yTicks = yScale.ticks(4);
@@ -94,7 +92,6 @@ export function SettlementTrendChart({ batches }: { batches: BatchSummary[] }) {
           </linearGradient>
         </defs>
 
-        {/* Hairline recessive gridlines -- one shade off the surface */}
         {yTicks.map((t) => (
           <line
             key={t}
@@ -169,11 +166,11 @@ export function SettlementTrendChart({ batches }: { batches: BatchSummary[] }) {
           y={`${(yScale(hovered.amount) / HEIGHT) * 100}%`}
           visible
         >
-          <div className="font-mono text-[11px] text-text-dim">{formatDate(hovered.date)}</div>
-          <div className="font-mono text-[13px] text-text">
+          <div className="font-mono text-[12.5px] text-text-dim">{formatDate(hovered.date)}</div>
+          <div className="font-mono text-[14.5px] text-text">
             ₹{hovered.amount.toLocaleString("en-IN", { minimumFractionDigits: 2 })}
           </div>
-          <div className="font-mono text-[10px] text-text-dim">
+          <div className="font-mono text-[11.5px] text-text-dim">
             {hovered.batch.order_count} orders · UTR {hovered.batch.utr.slice(0, 8)}…
           </div>
         </ChartTooltip>

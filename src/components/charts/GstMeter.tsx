@@ -2,10 +2,6 @@
 
 import { scaleLinear } from "d3-scale";
 
-// Single ratio against a limit -> meter (same-ramp track), not a donut/gauge.
-// Two segments on one bar: claimable (good) and at-risk (critical), each
-// direct-labeled with its own ₹ value so the split is readable without a
-// legend.
 export function GstMeter({
   claimable,
   atRisk,
@@ -40,7 +36,7 @@ export function GstMeter({
           />
         )}
       </div>
-      <div className="mt-3 flex justify-between text-[13px]">
+      <div className="mt-3 flex justify-between text-[14.5px]">
         <span className="flex items-center gap-2">
           <span className="inline-block h-2 w-2 rounded-full bg-sage" />
           <span className="text-text-dim">GST ITC claimable</span>

@@ -2,19 +2,6 @@
 
 import { useEffect, useRef } from "react";
 
-// Purely atmospheric backdrop behind the Overview hero -- a slow-drifting
-// particle field in Razorpay's navy/blue tones. Takes ZERO props derived
-// from the Report: no order count, amount, category, or confidence feeds
-// this. It's seeded with fixed constants only, so it can never misrepresent
-// a data value -- that's deliberate, per the dataviz skill's rule against
-// 3D data-encoding charts (perspective distorts magnitude judgment). If you
-// ever feel tempted to wire a real number into this file, that number
-// belongs in a D3 chart instead, not here.
-//
-// Loaded via a dynamic import() inside this effect (not next/dynamic
-// {ssr:false}, which isn't permitted inside a Server Component tree) so
-// three.js's ~600KB never ships to a client that has prefers-reduced-motion
-// set, and never runs during SSR.
 export function AmbientMesh() {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -25,7 +12,7 @@ export function AmbientMesh() {
     const reduceMotion = window.matchMedia(
       "(prefers-reduced-motion: reduce)"
     ).matches;
-    if (reduceMotion) return; // static CSS gradient (in the wrapper below) is enough
+    if (reduceMotion) return;
 
     let disposed = false;
     let raf = 0;
@@ -66,7 +53,6 @@ export function AmbientMesh() {
       const points = new THREE.Points(geometry, material);
       scene.add(points);
 
-      // A faint wireframe icosahedron as a secondary anchor shape.
       const icoGeom = new THREE.IcosahedronGeometry(6, 1);
       const icoMat = new THREE.MeshBasicMaterial({
         color: new THREE.Color("#286cd5"),

@@ -1,9 +1,5 @@
 import Link from "next/link";
 
-// The "strikethrough reveal" technique: state the old broken reality, strike
-// it through, then state the new one in the one accent color. Narrates the
-// actual product value prop (opaque lump-sum settlement -> unpacked
-// clarity) with the same mechanic, not just borrowed visual chrome.
 export function Hero() {
   return (
     <section className="relative px-6 md:px-10 pt-16 md:pt-24 pb-20 md:pb-28 max-w-5xl mx-auto text-center">
@@ -39,26 +35,27 @@ export function Hero() {
       </h1>
 
       <p
-        className="fade-in-up mt-7 max-w-xl mx-auto text-[16px] md:text-[17px] text-landing-text-dim leading-relaxed"
+        className="fade-in-up mt-7 max-w-xl mx-auto text-[18px] md:text-[19px] text-landing-text-dim leading-relaxed"
         style={{ ["--fade-delay" as string]: "380ms" }}
       >
-        Razorpay settles net, in one bank line, with no order-level
-        breakdown. Unsettle explodes it back open — order by order,
-        deduction by deduction — and tells you exactly how much of it you
-        can still get back.
+        One lumped bank credit, hundreds of orders, zero breakdown of what got
+        deducted. Unsettle explodes it back open — order by order, deduction
+        by deduction — and tells you exactly how much of it you can still get
+        back. Starts with Razorpay&apos;s settlement data; built to go
+        wherever your money actually moves.
       </p>
 
       <div className="fade-in-up mt-9 flex items-center justify-center gap-4" style={{ ["--fade-delay" as string]: "460ms" }}>
         <Link
           href="/app"
-          className="group flex items-center gap-2 rounded-full bg-blue px-6 py-3.5 text-[14.5px] font-semibold text-navy-900 transition-all hover:shadow-[0_0_0_1px_var(--color-blue),0_8px_28px_-8px_var(--color-blue)]"
+          className="group flex items-center gap-2 rounded-full bg-blue px-6 py-3.5 text-[16.5px] font-semibold text-navy-900 transition-all hover:shadow-[0_0_0_1px_var(--color-blue),0_8px_28px_-8px_var(--color-blue)]"
         >
-          Open Live Demo
+          Sign up / Sign in
           <span className="transition-transform group-hover:translate-x-1">→</span>
         </Link>
         <a
           href="#how-it-works"
-          className="rounded-full border border-white/15 px-6 py-3.5 text-[14.5px] font-medium text-landing-white transition-colors hover:border-blue hover:text-blue"
+          className="rounded-full border border-white/15 px-6 py-3.5 text-[16.5px] font-medium text-landing-white transition-colors hover:border-blue hover:text-blue"
         >
           How it works
         </a>

@@ -4,13 +4,6 @@ import { getChatHistory, saveChatMessage } from "@/lib/db/chat";
 import { answerSettlementQuestion } from "@/lib/qaAgent";
 import { createClient } from "@/lib/supabase/server";
 
-// Requires a signed-in user -- checked here explicitly, not just relied on
-// via src/app/app/layout.tsx's redirect, because this Route Handler is a
-// separate request path proxy.ts's matcher (or a future refactor of it)
-// could miss. Reads from the user's own persisted latest run (RLS-scoped)
-// rather than the shared getReportBundle() cache directly, so the chat
-// answers about exactly what's on that user's dashboard, and every message
-// is saved to their own chat history.
 async function requireUserOr401() {
   const supabase = await createClient();
   const {

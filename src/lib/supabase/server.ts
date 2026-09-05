@@ -1,14 +1,6 @@
 import { createServerClient, type SetAllCookies } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
-// For Server Components, Route Handlers, and Server Functions. `cookies()`
-// is async in this Next.js version (confirmed in the bundled docs -- see
-// node_modules/next/dist/docs/.../functions/cookies.md), so this helper is
-// async too. The setAll try/catch matters: Next.js only allows mutating
-// cookies from a Server Function or Route Handler, not a Server Component
-// render -- calling this from a plain page is fine for *reading* the
-// session, and proxy.ts is what actually keeps the session cookie fresh, so
-// a swallowed setAll error here is expected/harmless in that case.
 export async function createClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -33,8 +25,7 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // Called from a Server Component -- proxy.ts refreshes the
-            // session cookie instead, so this is safe to ignore here.
+
           }
         },
       },

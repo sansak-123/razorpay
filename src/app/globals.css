@@ -1,44 +1,24 @@
 @import "tailwindcss";
 
-/*
-  Design language: forensic ledger, re-grounded in Razorpay's own brand navy
-  and blues instead of a generic dark-panel template. ink-900 is Razorpay's
-  own logo navy (#0C2651) at full brand saturation; ink-800/700/600 are a
-  deliberately desaturated slate-navy ramp on top of it (same hue, ~20%
-  saturation) so panels/borders/dim text stay structural and quiet instead
-  of turning the whole UI into a wash of vivid blue -- the same restraint
-  the original palette had, just re-grounded in the brand hue. The one
-  accent doing real signaling work is Razorpay's own bright blue (#0D94FB)
-  in place of the old amber. Categorical/status hex values below are not
-  eyeballed -- they were run through the dataviz skill's colorblind-safety
-  validator (scripts/validate_palette.js) against this exact ink-800 surface
-  (#353f50) before being adopted; see the implementation plan for the
-  validator output. Numerals still run in a monospace stack throughout --
-  money should always look like money.
-*/
 @theme {
-  --color-ink-900: #0c2651;
-  --color-ink-800: #353f50;
-  --color-ink-700: #435065;
-  --color-ink-600: #52617a;
-  --color-paper: #ece5d3;
-  --color-paper-dim: #c9c0a8;
-  --color-text: #e7e4da;
-  --color-text-dim: #8b93a1;
-  --color-stamp: #0d94fb;
-  --color-stamp-dim: #286cd5;
-  --color-sage: #0ca30c;
-  --color-brick: #d03b3b;
+  --color-ink-900: var(--c-ink-900);
+  --color-ink-800: var(--c-ink-800);
+  --color-ink-700: var(--c-ink-700);
+  --color-ink-600: var(--c-ink-600);
+  --color-paper: var(--c-paper);
+  --color-paper-dim: var(--c-paper-dim);
+  --color-text: var(--c-text);
+  --color-text-dim: var(--c-text-dim);
+  --color-stamp: var(--c-stamp);
+  --color-stamp-dim: var(--c-stamp-dim);
+  --color-sage: var(--c-sage);
+  --color-brick: var(--c-brick);
 
-  --color-cat-duplicate: #d95926;
-  --color-cat-refund: #3987e5;
-  --color-cat-rounding: #898781;
-  --color-cat-unexplained: #e66767;
+  --color-cat-duplicate: var(--c-cat-duplicate);
+  --color-cat-refund: var(--c-cat-refund);
+  --color-cat-rounding: var(--c-cat-rounding);
+  --color-cat-unexplained: var(--c-cat-unexplained);
 
-  /* Landing page only (src/app/page.tsx and src/components/landing) --
-     additive, does not replace or alias the ink/stamp tokens the dashboard
-     uses. Razorpay's real brand hexes, web-verified: deep navy plus one
-     bright "dodger blue" interactive accent, used sparingly. */
   --color-navy-900: #0a1628;
   --color-navy-800: #0c2451;
   --color-navy-700: #16305e;
@@ -47,34 +27,60 @@
   --color-landing-white: #f8fafc;
   --color-landing-text-dim: #7d8ba3;
 
-  /* The --font-fraunces/inter/jetbrains-mono variables are injected by
-     next/font/google on <html> in layout.tsx (self-hosted at build time,
-     zero runtime request to Google) -- these three lines just point the
-     Tailwind tokens the rest of the app already uses at them. Fraunces
-     replaces Georgia for headings/hero numbers (real character instead of
-     a default system serif); Inter replaces the plain OS UI-font stack;
-     JetBrains Mono replaces generic system mono for ledger numerals.
-     System-font fallbacks stay in case a font ever fails to load. */
   --font-display: var(--font-fraunces), Georgia, serif;
   --font-sans: var(--font-inter), -apple-system, "Segoe UI", system-ui, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
 
+:root {
+  --c-ink-900: #f7f8fa;
+  --c-ink-800: #ffffff;
+  --c-ink-700: #e5e7eb;
+  --c-ink-600: #d1d5db;
+  --c-paper: #ece5d3;
+  --c-paper-dim: #c9c0a8;
+  --c-text: #111827;
+  --c-text-dim: #5b6472;
+  --c-stamp: #0870bd;
+  --c-stamp-dim: #286cd5;
+  --c-sage: #0ca30c;
+  --c-brick: #d03b3b;
+
+  --c-cat-duplicate: #eb6834;
+  --c-cat-refund: #2a78d6;
+  --c-cat-rounding: #898781;
+  --c-cat-unexplained: #e34948;
+}
+
+:root[data-theme="dark"] {
+  --c-ink-900: #0c2651;
+  --c-ink-800: #353f50;
+  --c-ink-700: #435065;
+  --c-ink-600: #52617a;
+  --c-text: #e7e4da;
+  --c-text-dim: #8b93a1;
+  --c-stamp: #0d94fb;
+  --c-stamp-dim: #286cd5;
+  --c-sage: #0ca30c;
+  --c-brick: #d03b3b;
+
+  --c-cat-duplicate: #d95926;
+  --c-cat-refund: #3987e5;
+  --c-cat-rounding: #898781;
+  --c-cat-unexplained: #e66767;
+}
+
 body {
+  background: var(--color-ink-900);
+}
+
+:root[data-theme="dark"] body {
   background:
     radial-gradient(ellipse 1200px 600px at 15% -10%, #1a53b2 0%, transparent 60%),
     var(--color-ink-900);
-  /* Without this, the radial-gradient layer repeats (CSS default) down the
-     whole document on any page taller than ~2 tiles -- was already true in
-     the original palette but invisible there (short single page, near-zero
-     luminance delta between glow and base). The 5-page split has genuinely
-     tall pages now, and this hue has enough contrast with ink-900 to make a
-     repeating gradient band very visible, so this now needs to be explicit. */
   background-repeat: no-repeat;
 }
 
-/* Perforated / torn-edge motif used by the hero receipt -- a real zigzag,
-   not a border-image hack, so it scales cleanly at any width. */
 .torn-edge-bottom {
   -webkit-mask-image: linear-gradient(#000, #000);
   clip-path: polygon(
@@ -96,8 +102,6 @@ body {
     to { opacity: 1; transform: scale(1) rotate(var(--stamp-rot, -3deg)); }
   }
 
-  /* Page/card entrance used across the dashboard shell -- one shared,
-     understated motion instead of a bespoke transition per component. */
   .fade-in-up {
     animation: fadeInUp 0.35s cubic-bezier(0.2, 0.7, 0.3, 1) backwards;
     animation-delay: var(--fade-delay, 0ms);
@@ -108,21 +112,16 @@ body {
   }
 }
 
-/* Hover glow for interactive cards/rows -- a soft lift toward the brand
-   accent, not a full box-shadow-everywhere pattern. Transition itself isn't
-   gated behind prefers-reduced-motion (it's a property fade, not motion). */
 .hover-glow {
   transition: box-shadow 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
 }
 .hover-glow:hover {
-  box-shadow: 0 0 0 1px rgba(13, 148, 251, 0.25), 0 8px 24px -12px rgba(13, 148, 251, 0.35);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--color-stamp) 25%, transparent),
+    0 8px 24px -12px color-mix(in srgb, var(--color-stamp) 35%, transparent);
   border-color: var(--color-stamp-dim);
 }
 
-/* Landing page: infinite category marquee. Content is duplicated once in
-   the markup so translating by exactly -50% loops seamlessly -- no JS,
-   no library. Paused under reduced motion (falls back to static text,
-   still fully readable) and on hover (lets a reader actually read one). */
 @media (prefers-reduced-motion: no-preference) {
   .marquee-track {
     animation: marqueeScroll 24s linear infinite;
@@ -136,11 +135,6 @@ body {
   to { transform: translateX(-50%); }
 }
 
-/* Landing page: scroll-reveal used by the receipt teaser and stat section.
-   Starts hidden/offset; a client-side IntersectionObserver hook toggles
-   .is-visible once the element actually enters the viewport, so the
-   animation plays when a reader scrolls to it instead of firing at mount
-   time somewhere off-screen. */
 .scroll-reveal {
   opacity: 0;
   transform: translateY(24px);
@@ -153,4 +147,18 @@ body {
 .scroll-reveal.is-visible {
   opacity: 1;
   transform: translateY(0);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .chat-launcher-pulse {
+    animation: chatPulse 2s ease-out 3;
+  }
+  @keyframes chatPulse {
+    0%, 100% { box-shadow: 0 8px 28px -6px color-mix(in srgb, var(--color-stamp) 55%, transparent); }
+    50% {
+      box-shadow:
+        0 8px 34px -4px color-mix(in srgb, var(--color-stamp) 90%, transparent),
+        0 0 0 6px color-mix(in srgb, var(--color-stamp) 15%, transparent);
+    }
+  }
 }

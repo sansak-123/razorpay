@@ -17,9 +17,6 @@ function round2(n: number) {
   return Math.round(n * 100) / 100;
 }
 
-// Exported so batchSummary.ts (the Settlements page's per-batch derivation)
-// reuses the exact same grouping/arithmetic instead of re-deriving it and
-// risking drift from what the reconciliation engine actually computed.
 export function groupLinesBySettlement(
   lines: SettlementLine[]
 ): Map<string, SettlementLine[]> {
@@ -36,42 +33,10 @@ export function batchGrossTotal(lines: SettlementLine[]): number {
   return lines.reduce((sum, l) => sum + rupees(l.credit) - rupees(l.debit), 0);
 }
 
-// --- Confidence: calibrated multi-signal fusion, not hand-picked constants -
-// Every confidence value used to be a literal (0.97, 0.4, 0.9, ...) with no
-// justification and no guarantee two categories' numbers were comparable.
-// This replaces that with a weighted fusion of independently-computed
-// signals -- the same conceptual approach production anomaly-detection and
-// biometric-matching systems use: a single raw score is never trusted
-// alone, it's fused from several weaker signals whose weights are fixed and
-// documented, not tuned per case. The four signals:
-//
-//   hasOrderMatch       -- is there a solid anchor explaining this line? For
-//                          order-referencing lines, does order_id actually
-//                          resolve. For lines that never carry an order_id
-//                          by design (rounding dust, batch-level gaps), the
-//                          amount pattern itself is the anchor instead --
-//                          see the per-category comments below for how each
-//                          case sets this.
-//   amountStrength      -- how well the amount fits a recognized pattern for
-//                          this category (a refund <= its order's gross, a
-//                          sub-rupee rounding residual, a duplicate-match
-//                          score). Low when nothing recognizable explains it.
-//   relativeBatchImpact -- amount / batch total. A bigger fraction of the
-//                          batch is more consequential and, all else equal,
-//                          more worth double-checking -- so it pulls
-//                          confidence down, not just priority.
-//   temporalConsistency -- has a same-category, similarly-sized exception
-//                          shown up elsewhere in this same report? A
-//                          recurring pattern is better understood than a
-//                          one-off. Computed in one pass after every
-//                          exception has been constructed (see
-//                          finalizeConfidence()), so it isn't order-
-//                          dependent on which batch happened to be
-//                          processed first.
 interface ConfidenceSignals {
-  hasOrderMatch: number; // 0-1
-  amountStrength: number; // 0-1
-  relativeBatchImpact: number; // 0-1, NOT yet inverted
+  hasOrderMatch: number;
+  amountStrength: number;
+  relativeBatchImpact: number;
 }
 
 const CONFIDENCE_WEIGHTS = {
@@ -93,23 +58,9 @@ export function computeConfidence(
   return Math.max(0, Math.min(1, raw));
 }
 
-// --- Duplicate detection: probabilistic (Fellegi-Sunter-style) weighted
-// matching, not exact-fingerprint matching -----------------------------------
-// The old version only caught BYTE-IDENTICAL duplicates: same order_id, same
-// credit, same batch. Real duplicate-settlement errors don't always look
-// like that -- a resubmitted payment can settle a few hours later for a
-// paisa-different amount. Classic probabilistic record linkage (Fellegi &
-// Sunter, 1969 -- still the basis of modern entity-resolution tools like
-// Splink) scores a candidate pair by combining weighted evidence from
-// several fields instead of requiring exact agreement on all of them. Two
-// lines for the SAME order in the SAME batch are scored on amount
-// closeness, how far apart they settled, and whether the payment method
-// matches; the order match itself is required (it dominates the weights on
-// purpose -- this is about the same order settling twice, not a
-// coincidental cross-order resemblance).
 const DUPLICATE_WEIGHTS = { order: 0.45, amount: 0.3, time: 0.15, method: 0.1 };
-const DUPLICATE_HARD_THRESHOLD = 0.92; // auto-excluded from revenue, rule-only
-const DUPLICATE_SOFT_THRESHOLD = 0.65; // flagged, routed to Claude for judgment
+const DUPLICATE_HARD_THRESHOLD = 0.92;
+const DUPLICATE_SOFT_THRESHOLD = 0.65;
 
 function parseSettledAt(s: string): number {
   const t = new Date(s.replace(" ", "T")).getTime();
@@ -131,13 +82,6 @@ export function duplicateMatchScore(a: SettlementLine, b: SettlementLine): numbe
   );
 }
 
-// This class mirrors the Python SettlementUnpacker class one-to-one. Classes
-// in TypeScript work the same way they do in Python: `this` refers to the
-// current instance, and every method can read/write the fields declared
-// below it. Grouping state (exceptions, running totals) as fields instead of
-// passing them between free functions keeps the multi-step algorithm
-// (detect duplicates -> process batches -> build report) readable as a
-// sequence of steps that share context.
 export class SettlementUnpacker {
   private settlementLines: SettlementLine[];
   private ordersById: Map<string, Order>;
@@ -148,10 +92,6 @@ export class SettlementUnpacker {
   private matchedOrders = new Set<string>();
   private hardDuplicateEntityIds = new Set<string>();
 
-  // Per-exception confidence inputs, keyed by object reference (each
-  // Exception object is unique) -- kept separate from the public Exception
-  // shape so internal scoring plumbing never leaks into the API/dashboard
-  // contract. Finalized into a real confidence in finalizeConfidence().
   private confidenceInputs = new Map<Exception, ConfidenceSignals>();
 
   private gstItcClaimable = 0;
@@ -166,15 +106,6 @@ export class SettlementUnpacker {
     this.bankByUtr = new Map(data.bankRows.map((b) => [b.utr, b]));
   }
 
-  // run() is async now specifically because of this step: after the
-  // deterministic rules have done everything they confidently can, every
-  // exception the rules were genuinely unsure about (confidence < 0.6) gets
-  // sent to Claude for real reasoning over the batch context, and the
-  // result REPLACES the rule-based guess in place. This is the actual "AI
-  // judgment" layer -- everything above it is fast, deterministic matching;
-  // this step is where the agent looks at an ambiguous case the way a
-  // human reviewer would, weighing multiple weak signals together instead
-  // of applying one fixed threshold.
   async run(): Promise<Report> {
     for (const [id, lines] of groupLinesBySettlement(this.settlementLines)) {
       this.batchTotals.set(id, batchGrossTotal(lines));
@@ -197,12 +128,6 @@ export class SettlementUnpacker {
     return Math.max(0, Math.min(1, amount / total));
   }
 
-  // Probabilistic duplicate detection -- see duplicateMatchScore() above.
-  // Only lines sharing an order_id within the same batch are ever compared
-  // (the order-match term dominates the weights enough that no other pair
-  // can reach the soft threshold anyway), so this stays cheap: almost every
-  // order has exactly one payment line, and only the rare handful with 2+
-  // get scored at all.
   private detectDuplicates() {
     for (const [settlementId, lines] of groupLinesBySettlement(this.settlementLines)) {
       const paymentsByOrder = new Map<string, SettlementLine[]>();
@@ -225,23 +150,17 @@ export class SettlementUnpacker {
           const isHard = score >= DUPLICATE_HARD_THRESHOLD;
 
           if (isHard) {
-            // Confirmed enough to exclude from revenue counting outright,
-            // same as the old exact-match behavior.
+
             this.hardDuplicateEntityIds.add(dupLine.entity_id);
             this.totalRecoveredFlag += amount;
           }
-          // A "soft" match (0.65-0.92) stays IN normal processing -- it's
-          // flagged for review, not auto-excluded, because the evidence
-          // isn't strong enough to remove real revenue on suspicion alone.
-          // That's a deliberate asymmetry: confirmed duplicates come out of
-          // the books; suspected ones get a human/Claude look first.
 
           const exception: Exception = {
             order_id: orderId,
             settlement_id: settlementId,
             category: "DUPLICATE",
             amount,
-            confidence: 0, // set in finalizeConfidence()
+            confidence: 0,
             explanation: isHard
               ? `Order ${orderId} appears settled twice within the same batch (${settlementId}) for the same amount. This looks like a duplicate settlement line, not two separate payments -- flagged before it gets booked as extra revenue.`
               : `Order ${orderId} was settled twice in batch ${settlementId} with a ${Math.round(score * 100)}% duplicate-match score on amount/timing/method -- close enough to flag, not identical enough to auto-exclude from revenue without review.`,
@@ -279,10 +198,7 @@ export class SettlementUnpacker {
           const order = this.ordersById.get(orderId);
           if (order) {
             this.matchedOrders.add(orderId);
-            // GST on the MDR fee is only claimable as input tax credit if
-            // it's broken out as its own line item. Here it is (line.tax),
-            // so it's claimable -- this is exactly where real merchants
-            // lose money when a settlement feed doesn't itemise it.
+
             if (tax > 0) {
               this.gstItcClaimable += tax;
             } else {
@@ -305,9 +221,7 @@ export class SettlementUnpacker {
                 "before escalating.",
             };
             this.exceptions.push(exception);
-            // No order resolves and there's no recognized amount pattern
-            // either -- this is the "no anchor at all" case, same treatment
-            // as the other true-unexplained cases below.
+
             this.confidenceInputs.set(exception, {
               hasOrderMatch: 0,
               amountStrength: 0.2,
@@ -317,9 +231,7 @@ export class SettlementUnpacker {
         } else if (line.type === "refund") {
           const amount = rupees(line.debit);
           const order = this.ordersById.get(orderId);
-          // A refund can't legitimately exceed what was originally charged
-          // -- this is a real sanity check the old hardcoded-confidence
-          // version never actually ran.
+
           const withinOrderAmount = order ? amount <= order.order_amount : false;
           const exception: Exception = {
             order_id: orderId,
@@ -357,10 +269,7 @@ export class SettlementUnpacker {
               `₹${amt} adjustment in batch ${settlementId} is paise-level ` +
               `rounding dust, not a real discrepancy.`;
             action = "No action needed.";
-            // No order_id is expected on an adjustment line at all -- the
-            // sub-rupee amount itself IS the anchor here, so this isn't
-            // penalized for lacking one, unlike the two cases below where
-            // nothing anchors the classification.
+
             signals = {
               hasOrderMatch: 1,
               amountStrength: 1 - (amt / 1.0) * 0.4,
@@ -376,9 +285,7 @@ export class SettlementUnpacker {
               `Escalate to Razorpay support with settlement_id ` +
               `${settlementId} and UTR ${utr} -- this is exactly the kind ` +
               `of 'unexplained deduction' merchants can't trace on their own.`;
-            // Genuinely no anchor: no order reference AND no recognized
-            // amount pattern (too big to be rounding dust). This is
-            // deliberately the lowest-confidence shape in the whole engine.
+
             signals = {
               hasOrderMatch: 0,
               amountStrength: 0.15,
@@ -401,10 +308,6 @@ export class SettlementUnpacker {
         }
       }
 
-      // Batch-level check: sum ALL lines (duplicates included, since the
-      // bank genuinely received that money too) and compare to the actual
-      // bank credit. Only flag a NEW gap if one remains after the
-      // duplicate is already explained above -- see README "what broke".
       if (bankRow) {
         const diff = round2(bankRow.credited_amount - grossLinesTotal);
         if (Math.abs(diff) > 1.0) {
@@ -436,12 +339,6 @@ export class SettlementUnpacker {
     }
   }
 
-  // Fills in temporalConsistency (has a same-category, similarly-sized
-  // exception shown up elsewhere in this report?) and computes the final
-  // confidence for every exception in one pass, now that the full list
-  // exists. Must run AFTER detectDuplicates()/processBatches() and BEFORE
-  // the Claude escalation step, since that step's <0.6 trigger needs real
-  // final numbers, not placeholders.
   private finalizeConfidence() {
     const frequency = new Map<string, number>();
     for (const e of this.exceptions) {
@@ -451,7 +348,7 @@ export class SettlementUnpacker {
 
     for (const e of this.exceptions) {
       const signals = this.confidenceInputs.get(e);
-      if (!signals) continue; // shouldn't happen; every exception is registered above
+      if (!signals) continue;
       const key = `${e.category}:${Math.round(e.amount)}`;
       const temporalConsistency = (frequency.get(key) ?? 1) > 1 ? 1 : 0.5;
       e.confidence = round2(computeConfidence(signals, temporalConsistency));
@@ -475,6 +372,7 @@ export class SettlementUnpacker {
 
     const unresolved = this.exceptions.filter((e) => e.confidence < 0.6);
     const aiReasoned = this.exceptions.filter((e) => e.ai_reasoned);
+    const verificationFailed = this.exceptions.filter((e) => e.verification_failed);
 
     return {
       summary: {
@@ -490,12 +388,11 @@ export class SettlementUnpacker {
         total_exceptions: this.exceptions.length,
         unresolved_exceptions: unresolved.length,
         ai_reasoned_count: aiReasoned.length,
+        ai_verification_failed_count: verificationFailed.length,
       },
       exceptions_by_category: byCategory,
       exceptions: this.exceptions,
-      // Forensic-accounting anomaly check on the UNEXPLAINED bucket only --
-      // see benfordCheck.ts for why this is honestly gated on sample size
-      // rather than always showing a pass/fail verdict.
+
       benford: checkBenfordsLaw(this.exceptions),
     };
   }

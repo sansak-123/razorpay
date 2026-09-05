@@ -4,8 +4,6 @@ import type { Report } from "@/lib/types";
 import { CountUpNumber } from "@/components/overview/CountUpNumber";
 import { useInView } from "./useInView";
 
-// Real numbers from the current run's actual report -- not landing-page-only
-// invented stats. Count-up plays once this section scrolls into view.
 export function StatSection({ report }: { report: Report }) {
   const { ref, inView } = useInView<HTMLDivElement>(0.4);
   const { summary } = report;
@@ -19,7 +17,7 @@ export function StatSection({ report }: { report: Report }) {
 
   return (
     <section id="problem" className="px-6 md:px-10 py-16 md:py-24 max-w-5xl mx-auto">
-      <p className="font-mono text-[11px] uppercase tracking-widest text-blue text-center mb-3">
+      <p className="font-mono text-[12.5px] uppercase tracking-widest text-blue text-center mb-3">
         Why now
       </p>
       <h2
@@ -40,7 +38,7 @@ export function StatSection({ report }: { report: Report }) {
               <CountUpNumber value={s.value} start={inView} />
               {s.suffix}
             </div>
-            <div className="font-mono text-[11px] uppercase tracking-wide text-landing-text-dim mt-2">
+            <div className="font-mono text-[12.5px] uppercase tracking-wide text-landing-text-dim mt-2">
               {s.label}
             </div>
           </div>

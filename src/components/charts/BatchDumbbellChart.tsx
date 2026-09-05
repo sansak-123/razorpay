@@ -6,9 +6,6 @@ const WIDTH = 160;
 const HEIGHT = 20;
 const PAD = 10;
 
-// Before/after per item -> dumbbell, 1 hue/2 shades (not 2 unrelated
-// categorical colors -- these are the same "amount" axis, just two sources
-// for it). Uses Razorpay's own two brand blues as the two shades.
 export function BatchDumbbellChart({
   credited,
   linesTotal,
